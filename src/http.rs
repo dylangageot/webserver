@@ -53,7 +53,7 @@ impl Request {
         };
         let headers = match Request::parse_headers(head_iter) {
             Some(h) => h,
-            None => return Err("Could't parse header approrietly"),
+            None => return Err("Couldn't parse headers"),
         };
         Ok(Request {
             version: version,
@@ -117,4 +117,25 @@ mod tests {
             Request::from(&headers, String::from("")).unwrap()
         );
     }
+
+    #[test]
+    #[should_panic(expected = "parse headers")]
+    fn from_headers_parsing_fail() {
+        let headers = vec![
+            String::from("GET / HTTP/1.1"),
+            String::from("Content-Type: text/plain"),
+            String::from("User-Agent curl"), // missing ":" here will cause an error.
+        ];
+        Request::from(&headers, String::from("")).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "parse method from string")]
+    fn from_introduction_line_method_parsing_fail() {
+        let headers = vec![
+            String::from("GOT / HTTP/1.1"),
+        ];
+        Request::from(&headers, String::from("")).unwrap();
+    }
+
 }
