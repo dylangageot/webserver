@@ -1,39 +1,8 @@
-#[derive(Debug, PartialEq)]
-pub enum Version {
-    V0_9,
-    V1_0,
-    V1_1,
-    V2,
-    V3,
-}
+pub mod method;
+pub mod version;
 
-impl Version {
-    fn from(string: &str) -> Result<Version, &str> {
-        use Version::*;
-        match string {
-            "HTTP/0.9" => Ok(V0_9),
-            "HTTP/1.0" => Ok(V1_0),
-            "HTTP/1.1" => Ok(V1_1),
-            "HTTP/2" => Ok(V2),
-            "HTTP/3" => Ok(V3),
-            _ => Err("Couldn't parse version from string"),
-        }
-    }
-}
-
-/// HTTP methods.
-#[derive(Debug, PartialEq)]
-pub enum Method {
-    Head,
-    Get,
-    Delete,
-    Post,
-    Patch,
-    Put,
-    Connect,
-    Trace,
-    Options,
-}
+pub use method::Method;
+pub use version::Version;
 
 use std::collections::HashMap;
 pub type Headers = HashMap<String, String>;
@@ -46,24 +15,6 @@ pub struct Request {
     url: Url,
     headers: Headers,
     body: Body,
-}
-
-impl Method {
-    fn from(string: &str) -> Result<Method, &str> {
-        use Method::*;
-        match string {
-            "HEAD" => Ok(Head),
-            "GET" => Ok(Get),
-            "DELETE" => Ok(Delete),
-            "POST" => Ok(Post),
-            "PATCH" => Ok(Patch),
-            "PUT" => Ok(Put),
-            "CONNECT" => Ok(Connect),
-            "TRACE" => Ok(Trace),
-            "OPTIONS" => Ok(Options),
-            _ => Err("Couldn't parse method from string"),
-        }
-    }
 }
 
 impl Request {
@@ -102,42 +53,11 @@ pub struct Response {}
 mod tests {
     use super::*;
     #[test]
-    fn retrieve_method_from_string() {
-        assert_eq!(Method::Head, Method::from("HEAD").unwrap());
-        assert_eq!(Method::Get, Method::from("GET").unwrap());
-        assert_eq!(Method::Delete, Method::from("DELETE").unwrap());
-        assert_eq!(Method::Post, Method::from("POST").unwrap());
-        assert_eq!(Method::Patch, Method::from("PATCH").unwrap());
-        assert_eq!(Method::Put, Method::from("PUT").unwrap());
-        assert_eq!(Method::Connect, Method::from("CONNECT").unwrap());
-        assert_eq!(Method::Trace, Method::from("TRACE").unwrap());
-        assert_eq!(Method::Options, Method::from("OPTIONS").unwrap());
-    }
-
-    #[test]
-    #[should_panic(expected = "parse method from string")]
-    fn retrieve_method_from_string_fail() {
-        Method::from("GARBAGE").unwrap();
-    }
-
-    #[test]
-    fn retrieve_version_from_string() {
-        assert_eq!(Version::V0_9, Version::from("HTTP/0.9").unwrap());
-        assert_eq!(Version::V1_0, Version::from("HTTP/1.0").unwrap());
-        assert_eq!(Version::V1_1, Version::from("HTTP/1.1").unwrap());
-        assert_eq!(Version::V2, Version::from("HTTP/2").unwrap());
-        assert_eq!(Version::V3, Version::from("HTTP/3").unwrap());
-    }
-
-    #[test]
-    #[should_panic(expected = "parse version from string")]
-    fn retrieve_version_from_string_fail() {
-        Version::from("HTTP/0.8").unwrap();
-    }
-
-    #[test]
     fn parse_introduction_success() {
-        assert_eq!((Method::Get, String::from("index.html"), Version::V1_1), Request::parse_introduction("GET index.html HTTP/1.1").unwrap());
+        assert_eq!(
+            (Method::Get, String::from("index.html"), Version::V1_1),
+            Request::parse_introduction("GET index.html HTTP/1.1").unwrap()
+        );
     }
 
     #[test]
@@ -157,5 +77,4 @@ mod tests {
     fn parse_introduction_method_parsing_fail() {
         Request::parse_introduction("").unwrap();
     }
-
 }
