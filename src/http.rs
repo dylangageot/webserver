@@ -9,6 +9,7 @@ pub type Headers = HashMap<String, String>;
 pub type Url = String;
 pub type Body = String;
 
+#[derive(Debug, PartialEq)]
 pub struct Request {
     version: Version,
     method: Method,
@@ -18,7 +19,7 @@ pub struct Request {
 }
 
 impl Request {
-    fn parse_introduction(introduction: &str) -> Result<(Method, Url, Version), &str> {
+    fn parse_introduction(introduction: &str) -> Result<(Method, Url, Version), &'static str> {
         let mut space_splitted_iter = introduction.split_ascii_whitespace();
         let method = match space_splitted_iter.next() {
             Some(s) => Method::from(s)?,
@@ -35,16 +36,26 @@ impl Request {
         Ok((method, url, version))
     }
 
-    // pub fn from(head: &Vec<String>, content: &str) -> Result<Request, &str> {
-    //     // Parse header
-    //     let mut head_iter = head.iter();
-    //     let introduction = match head_iter.next() {
-    //         Some(s) => ,
-    //         None => return Err("Request is malformed, could not get an initial introduction"),
-    //     };
+    pub fn from(head: &Vec<String>, content: String) -> Result<Request, &'static str> {
+        // Parse header
+        let mut head_iter = head.iter();
+        let (method, url, version) = match head_iter.next() {
+            Some(s) => Request::parse_introduction(s)?,
+            None => return Err("Couldn't get an initial introduction line"),
+        };
+        let headers = head_iter
+            .map(|s| s.split_at(s.find(":").unwrap()))
+            .map(|(key, val)| (String::from(key), String::from(&val[2..])))
+            .collect();
 
-    //     Ok(())
-    // }
+        Ok(Request {
+            version: version,
+            method: method,
+            url: url,
+            headers: headers,
+            body: content,
+        })
+    }
 }
 
 pub struct Response {}
@@ -76,5 +87,27 @@ mod tests {
     #[should_panic(expected = "find the method field")]
     fn parse_introduction_method_parsing_fail() {
         Request::parse_introduction("").unwrap();
+    }
+
+    #[test]
+    fn from_success() {
+        let headers = vec![
+            String::from("GET / HTTP/1.1"),
+            String::from("Content-Type: text/plain"),
+            String::from("User-Agent: curl"),
+        ];
+        assert_eq!(
+            Request {
+                version: Version::V1_1,
+                method: Method::Get,
+                url: String::from("/"),
+                headers: Headers::from([
+                    (String::from("Content-Type"), String::from("text/plain")),
+                    (String::from("User-Agent"), String::from("curl"))
+                ]),
+                body: Body::from(""),
+            },
+            Request::from(&headers, String::from("")).unwrap()
+        );
     }
 }

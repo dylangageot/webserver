@@ -13,7 +13,7 @@ pub enum Method {
 }
 
 impl Method {
-    pub fn from(string: &str) -> Result<Method, &str> {
+    pub fn from(string: &str) -> Result<Method, &'static str> {
         use Method::*;
         match string {
             "HEAD" => Ok(Head),

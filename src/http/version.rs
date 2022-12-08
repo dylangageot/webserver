@@ -8,7 +8,7 @@ pub enum Version {
 }
 
 impl Version {
-    pub fn from(string: &str) -> Result<Version, &str> {
+    pub fn from(string: &str) -> Result<Version, &'static str> {
         use Version::*;
         match string {
             "HTTP/0.9" => Ok(V0_9),
