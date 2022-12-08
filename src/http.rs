@@ -36,6 +36,14 @@ impl Request {
         Ok((method, url, version))
     }
 
+    fn parse_headers<'a>(head: impl Iterator<Item = &'a String>) -> Option<Headers> {
+        head.map(|s| {
+            let (k, v) = s.split_at(s.find(":")?);
+            Some((String::from(k), String::from(&v[2..])))
+        })
+        .collect()
+    }
+
     pub fn from(head: &Vec<String>, content: String) -> Result<Request, &'static str> {
         // Parse header
         let mut head_iter = head.iter();
@@ -43,11 +51,10 @@ impl Request {
             Some(s) => Request::parse_introduction(s)?,
             None => return Err("Couldn't get an initial introduction line"),
         };
-        let headers = head_iter
-            .map(|s| s.split_at(s.find(":").unwrap()))
-            .map(|(key, val)| (String::from(key), String::from(&val[2..])))
-            .collect();
-
+        let headers = match Request::parse_headers(head_iter) {
+            Some(h) => h,
+            None => return Err("Could't parse header approrietly"),
+        };
         Ok(Request {
             version: version,
             method: method,
