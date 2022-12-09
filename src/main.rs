@@ -16,10 +16,7 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    // TODO: find a way to get header clean, then the body
-    let mut buf_reader = BufReader::new(&mut stream);
-
-    let request = match Request::from(&mut buf_reader) {
+    let request = match Request::from(&mut BufReader::new(&mut stream)) {
         Ok(h) => h,
         Err(s) => {
             eprintln!("Header parsing failed miserably {}", s);
