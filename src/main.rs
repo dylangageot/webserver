@@ -3,6 +3,8 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
+use webserver::http::{self, Request};
+
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
@@ -14,12 +16,17 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let http_request: Vec<_> = buf_reader
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
+    // TODO: find a way to get header clean, then the body
+    let mut buf_reader = BufReader::new(&mut stream);
 
-    println!("Request: {:#?}", http_request);
+    let request = match Request::from(&mut buf_reader) {
+        Ok(h) => h,
+        Err(s) => {
+            eprintln!("Header parsing failed miserably {}", s);
+            return;
+        }
+    };
+
+    println!("Request: {:#?}", request);
+
 }
