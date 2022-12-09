@@ -3,7 +3,7 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use webserver::http::request::Request;
+use webserver::http::message::Message;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -16,13 +16,6 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let request = match Request::from(&mut BufReader::new(&mut stream)) {
-        Ok(h) => h,
-        Err(s) => {
-            eprintln!("Header parsing failed miserably {}", s);
-            return;
-        }
-    };
-
+    let request = Message::from(&mut BufReader::new(&mut stream)).unwrap();
     println!("Request: {:#?}", request);
 }

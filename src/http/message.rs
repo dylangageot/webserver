@@ -1,16 +1,14 @@
-use super::{Body, Headers, Method, Url, Version};
+use super::{Body, Headers, Method, Reason, Status, Url, Version};
 use std::io::BufRead;
 
 #[derive(Debug, PartialEq)]
-pub struct Header {
-    version: Version,
-    method: Method,
-    url: Url,
-    headers: Headers,
+pub enum Type {
+    Request(Method, Url, Version),
+    Response(Version, Status, Reason),
 }
 
-impl Header {
-    fn parse_introduction(introduction: &str) -> Result<(Method, Url, Version), &'static str> {
+impl Type {
+    fn from(introduction: &str) -> Result<Self, &'static str> {
         let mut space_splitted_iter = introduction.split_ascii_whitespace();
         let method = match space_splitted_iter.next() {
             Some(s) => Method::from(s)?,
@@ -24,9 +22,18 @@ impl Header {
             Some(s) => Version::from(s)?,
             None => return Err("Couldn't find the version field in the introduction line"),
         };
-        Ok((method, url, version))
+        Ok(Type::Request(method, url, version))
     }
+}
 
+#[derive(Debug, PartialEq)]
+pub struct Message {
+    message_type: Type,
+    headers: Headers,
+    body: Option<Body>,
+}
+
+impl Message {
     fn parse_headers(head: impl Iterator<Item = String>) -> Option<Headers> {
         head.take_while(|s| !s.is_empty())
             .map(|s| {
@@ -40,59 +47,47 @@ impl Header {
     }
 
     pub fn from(bufread: &mut impl BufRead) -> Result<Self, &'static str> {
-        let mut iter = bufread.by_ref().lines().map(|s| s.unwrap());
         // Parse header
-        let (method, url, version) = match iter.next() {
-            Some(s) => Header::parse_introduction(&s)?,
+        let mut iter = bufread.by_ref().lines().map(|s| s.unwrap());
+        let message_type = match iter.next() {
+            Some(s) => Type::from(&s)?,
             None => return Err("Couldn't get an initial introduction line"),
         };
-        let headers = match Header::parse_headers(iter) {
+        let headers = match Message::parse_headers(iter) {
             Some(h) => h,
             None => return Err("Couldn't parse headers"),
         };
-        Ok(Self {
-            method: method,
-            url: url,
-            version: version,
-            headers: headers,
-        })
-    }
-
-    pub fn content_length(&self) -> Result<Option<usize>, &'static str> {
-        match self.headers.get("Content-Length") {
+        let body = match headers.get("Content-Length") {
             Some(content_length) => match content_length.parse() {
-                Ok(length) => Ok(Some(length)),
-                Err(_) => Err("Coudn't retrieve content length"),
-            },
-            None => Ok(None),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Request {
-    header: Header,
-    body: Option<Body>,
-}
-
-impl Request {
-    pub fn from(bufread: &mut impl BufRead) -> Result<Self, &'static str> {
-        let header = Header::from(bufread)?;
-        let body = match header.content_length()? {
-            Some(content_length) => {
-                let mut body: Vec<u8> = Vec::with_capacity(content_length);
-                body.resize(content_length, 0);
-                match bufread.read_exact(&mut body[..]) {
-                    Ok(_) => Some(String::from_utf8_lossy(&body).to_string()),
-                    Err(_) => return Err("Failed reading body"),
+                Ok(content_length) => {
+                    let mut body: Vec<u8> = Vec::with_capacity(content_length);
+                    body.resize(content_length, 0);
+                    match bufread.read_exact(&mut body[..]) {
+                        Ok(_) => Some(String::from_utf8_lossy(&body).to_string()),
+                        Err(_) => return Err("Failed reading body"),
+                    }
                 }
-            }
+                Err(_) => return Err("Coudn't retrieve content length"),
+            },
             None => None,
         };
         Ok(Self {
-            header: header,
+            message_type: message_type,
+            headers: headers,
             body: body,
         })
+    }
+
+    pub fn message_type(&self) -> &Type {
+        &self.message_type
+    }
+
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.headers.get(key)
+    }
+
+    pub fn body(&self) -> &Option<String> {
+        &self.body
     }
 }
 
@@ -104,27 +99,27 @@ mod tests {
     #[test]
     fn parse_introduction_success() {
         assert_eq!(
-            (Method::Get, String::from("index.html"), Version::V1_1),
-            Header::parse_introduction("GET index.html HTTP/1.1").unwrap()
+            Type::Request(Method::Get, String::from("index.html"), Version::V1_1),
+            Type::from("GET index.html HTTP/1.1").unwrap()
         );
     }
 
     #[test]
     #[should_panic(expected = "find the version field")]
     fn parse_introduction_version_parsing_fail() {
-        Header::parse_introduction("GET index.html").unwrap();
+        Type::from("GET index.html").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the url field")]
     fn parse_introduction_url_parsing_fail() {
-        Header::parse_introduction("GET").unwrap();
+        Type::from("GET").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the method field")]
     fn parse_introduction_method_parsing_fail() {
-        Header::parse_introduction("").unwrap();
+        Type::from("").unwrap();
     }
 
     #[test]
@@ -138,16 +133,15 @@ User-Agent: curl
             .as_bytes(),
         );
         assert_eq!(
-            Header {
-                version: Version::V1_1,
-                method: Method::Get,
-                url: String::from("/"),
+            Message {
+                message_type: Type::Request(Method::Get, String::from("/"), Version::V1_1),
                 headers: Headers::from([
                     (String::from("Content-Type"), String::from("text/plain")),
                     (String::from("User-Agent"), String::from("curl"))
-                ])
+                ]),
+                body: None
             },
-            Header::from(&mut bufread).unwrap()
+            Message::from(&mut bufread).unwrap()
         );
     }
 
@@ -164,16 +158,15 @@ Test: Beyond empty line
             .as_bytes(),
         );
         assert_eq!(
-            Header {
-                version: Version::V1_1,
-                method: Method::Get,
-                url: String::from("/"),
+            Message {
+                message_type: Type::Request(Method::Get, String::from("/"), Version::V1_1),
                 headers: Headers::from([
                     (String::from("Content-Type"), String::from("text/plain")),
                     (String::from("User-Agent"), String::from("curl"))
-                ])
+                ]),
+                body: None
             },
-            Header::from(&mut bufread).unwrap()
+            Message::from(&mut bufread).unwrap()
         );
     }
 
@@ -189,7 +182,7 @@ Should failed since it misses a colon
 "
             .as_bytes(),
         );
-        Header::from(&mut bufread).unwrap();
+        Message::from(&mut bufread).unwrap();
     }
 
     #[test]
@@ -202,7 +195,7 @@ User-Agent:
 "
             .as_bytes(),
         );
-        Header::from(&mut bufread).unwrap();
+        Message::from(&mut bufread).unwrap();
     }
 
     #[test]
@@ -218,20 +211,16 @@ hello world"
                 .as_bytes(),
         );
         assert_eq!(
-            Request {
-                header: Header {
-                    version: Version::V1_1,
-                    method: Method::Get,
-                    url: String::from("/"),
-                    headers: Headers::from([
-                        (String::from("Content-Type"), String::from("text/plain")),
-                        (String::from("User-Agent"), String::from("curl")),
-                        (String::from("Content-Length"), String::from("11")),
-                    ])
-                },
+            Message {
+                message_type: Type::Request(Method::Get, String::from("/"), Version::V1_1),
+                headers: Headers::from([
+                    (String::from("Content-Type"), String::from("text/plain")),
+                    (String::from("User-Agent"), String::from("curl")),
+                    (String::from("Content-Length"), String::from("11")),
+                ]),
                 body: Some(String::from("hello world"))
             },
-            Request::from(&mut bufread).unwrap()
+            Message::from(&mut bufread).unwrap()
         );
     }
 
@@ -239,6 +228,6 @@ hello world"
     #[should_panic(expected = "parse method from string")]
     fn from_introduction_line_method_parsing_fail() {
         let mut bufread = BufReader::new("GOT / HTTP/1.1".as_bytes());
-        Request::from(&mut bufread).unwrap();
+        Message::from(&mut bufread).unwrap();
     }
 }
