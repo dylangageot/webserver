@@ -3,8 +3,16 @@ use std::io::BufRead;
 
 #[derive(Debug, PartialEq)]
 pub enum Type {
-    Request(Method, Url, Version),
-    Response(Version, Status, Reason),
+    Request {
+        method: Method,
+        url: Url,
+        version: Version,
+    },
+    Response {
+        version: Version,
+        status: Status,
+        reason: Reason,
+    },
 }
 
 impl Type {
@@ -22,7 +30,11 @@ impl Type {
             Some(s) => Version::from(s)?,
             None => return Err("Couldn't find the version field in the introduction line"),
         };
-        Ok(Type::Request(method, url, version))
+        Ok(Type::Request {
+            method: method,
+            url: url,
+            version: version,
+        })
     }
 }
 
@@ -99,7 +111,11 @@ mod tests {
     #[test]
     fn parse_introduction_success() {
         assert_eq!(
-            Type::Request(Method::Get, String::from("index.html"), Version::V1_1),
+            Type::Request {
+                method: Method::Get,
+                url: String::from("index.html"),
+                version: Version::V1_1
+            },
             Type::from("GET index.html HTTP/1.1").unwrap()
         );
     }
@@ -134,7 +150,11 @@ User-Agent: curl
         );
         assert_eq!(
             Message {
-                message_type: Type::Request(Method::Get, String::from("/"), Version::V1_1),
+                message_type: Type::Request {
+                    method: Method::Get,
+                    url: String::from("/"),
+                    version: Version::V1_1
+                },
                 headers: Headers::from([
                     (String::from("Content-Type"), String::from("text/plain")),
                     (String::from("User-Agent"), String::from("curl"))
@@ -159,7 +179,11 @@ Test: Beyond empty line
         );
         assert_eq!(
             Message {
-                message_type: Type::Request(Method::Get, String::from("/"), Version::V1_1),
+                message_type: Type::Request {
+                    method: Method::Get,
+                    url: String::from("/"),
+                    version: Version::V1_1
+                },
                 headers: Headers::from([
                     (String::from("Content-Type"), String::from("text/plain")),
                     (String::from("User-Agent"), String::from("curl"))
@@ -212,7 +236,11 @@ hello world"
         );
         assert_eq!(
             Message {
-                message_type: Type::Request(Method::Get, String::from("/"), Version::V1_1),
+                message_type: Type::Request {
+                    method: Method::Get,
+                    url: String::from("/"),
+                    version: Version::V1_1
+                },
                 headers: Headers::from([
                     (String::from("Content-Type"), String::from("text/plain")),
                     (String::from("User-Agent"), String::from("curl")),
