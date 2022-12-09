@@ -1,9 +1,9 @@
 use std::{
-    io::{prelude::*, BufReader},
+    io::BufReader,
     net::{TcpListener, TcpStream},
 };
 
-use webserver::http::{self, Request};
+use webserver::http::request::Request;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -28,5 +28,4 @@ fn handle_connection(mut stream: TcpStream) {
     };
 
     println!("Request: {:#?}", request);
-
 }
