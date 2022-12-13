@@ -67,16 +67,19 @@ pub struct Message {
 }
 
 impl Message {
-    fn parse_headers(head: impl Iterator<Item = String>) -> Option<Headers> {
-        head.take_while(|s| !s.is_empty())
-            .map(|s| {
-                let (k, v) = s.split_at(s.find(":")?);
-                Some((
-                    String::from(k),
-                    String::from(if v.len() > 1 { &v[2..] } else { "" }),
-                ))
-            })
-            .collect()
+    fn parse_headers(head: impl Iterator<Item = String>) -> Result<Headers, &'static str> {
+        match head.take_while(|s| !s.is_empty())
+        .map(|s| {
+            let (k, v) = s.split_at(s.find(":")?);
+            Some((
+                String::from(k),
+                String::from(if v.len() > 1 { &v[2..] } else { "" }),
+            ))
+        })
+        .collect() {
+            Some(header) => Ok(header),
+            None => Err("Couldn't parse headers"),
+        }
     }
 
     fn parse_body(
@@ -99,17 +102,14 @@ impl Message {
         }
     }
 
-    pub fn from(bufread: &mut impl BufRead) -> Result<Self, &'static str> {
+    pub fn read(bufread: &mut impl BufRead) -> Result<Self, &'static str> {
         // Parse header
         let mut iter = bufread.by_ref().lines().map(|s| s.unwrap());
         let message_type = match iter.next() {
             Some(s) => Type::from(&s)?,
             None => return Err("Couldn't get an initial introduction line"),
         };
-        let headers = match Message::parse_headers(iter) {
-            Some(h) => h,
-            None => return Err("Couldn't parse headers"),
-        };
+        let headers = Message::parse_headers(iter)?;
         let body = Message::parse_body(bufread, &headers)?;
         Ok(Self {
             message_type: message_type,
@@ -118,7 +118,7 @@ impl Message {
         })
     }
 
-    pub fn to(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
+    pub fn write(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
         self.message_type.to(bufwrite)?;
         for (k, v) in &self.headers {
             bufwrite.write_fmt(format_args!("{}: {}\r\n", k, v))?;
@@ -221,7 +221,7 @@ User-Agent: curl
                 ]),
                 body: None
             },
-            Message::from(&mut bufread).unwrap()
+            Message::read(&mut bufread).unwrap()
         );
     }
 
@@ -250,7 +250,7 @@ Test: Beyond empty line
                 ]),
                 body: None
             },
-            Message::from(&mut bufread).unwrap()
+            Message::read(&mut bufread).unwrap()
         );
     }
 
@@ -266,7 +266,7 @@ Should failed since it misses a colon
 "
             .as_bytes(),
         );
-        Message::from(&mut bufread).unwrap();
+        Message::read(&mut bufread).unwrap();
     }
 
     #[test]
@@ -279,7 +279,7 @@ User-Agent:
 "
             .as_bytes(),
         );
-        Message::from(&mut bufread).unwrap();
+        Message::read(&mut bufread).unwrap();
     }
 
     #[test]
@@ -308,7 +308,7 @@ hello world"
                 ]),
                 body: Some(String::from("hello world"))
             },
-            Message::from(&mut bufread).unwrap()
+            Message::read(&mut bufread).unwrap()
         );
     }
 
@@ -316,6 +316,6 @@ hello world"
     #[should_panic(expected = "parse method from string")]
     fn from_introduction_line_method_parsing_fail() {
         let mut bufread = BufReader::new("GOT / HTTP/1.1".as_bytes());
-        Message::from(&mut bufread).unwrap();
+        Message::read(&mut bufread).unwrap();
     }
 }

@@ -7,6 +7,7 @@ pub use method::Method;
 pub use status::Status;
 pub use version::Version;
 pub use message::Message;
+pub use message::Type;
 
 use std::collections::HashMap;
 pub type Headers = HashMap<String, String>;

@@ -3,7 +3,7 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use webserver::http::{Headers, Message, Status, Body};
+use webserver::http::{Body, Headers, Message, Method, Status, Type};
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -16,14 +16,30 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let request = Message::from(&mut BufReader::new(&mut stream)).unwrap();
-    println!("Request: {:#?}", request);
-
-    let response = Message::new(
-        Status::Ok,
-        Some(Headers::new()),
-        Some(Body::from("Hello world")),
-    );
-    println!("Response: {:#?}", response);
-    response.to(&mut BufWriter::new(&mut stream)).unwrap();
+    let request = Message::read(&mut BufReader::new(&mut stream)).unwrap();
+    match request.message_type() {
+        Type::Request { method, url, .. } => match method {
+            Method::Get => {
+                println!("Request: {:#?}", request);
+                let response = Message::new(
+                    Status::Ok,
+                    Some(Headers::from([(
+                        String::from("Content-Type"),
+                        String::from("text/plain"),
+                    )])),
+                    Some(format!("Content of: {}\n", url)),
+                );
+                println!("Response: {:#?}", response);
+                response.write(&mut BufWriter::new(&mut stream)).unwrap();
+            }
+            _ => {
+                eprintln!("Only GET method is allowed for the moment");
+                return;
+            }
+        },
+        _ => {
+            eprintln!("Received a response instead of a request...");
+            return;
+        }
+    };
 }
