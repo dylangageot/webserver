@@ -1,71 +1,40 @@
 /// HTTP methods.
-#[derive(Debug, PartialEq)]
+#[derive(EnumString, Display, Debug, PartialEq)]
 pub enum Method {
+    #[strum(serialize = "HEAD")]
     Head,
+    #[strum(serialize = "GET")]
     Get,
+    #[strum(serialize = "DELETE")]
     Delete,
+    #[strum(serialize = "POST")]
     Post,
+    #[strum(serialize = "PATCH")]
     Patch,
+    #[strum(serialize = "PUT")]
     Put,
+    #[strum(serialize = "CONNECT")]
     Connect,
+    #[strum(serialize = "TRACE")]
     Trace,
+    #[strum(serialize = "OPTIONS")]
     Options,
 }
 
-impl Method {
-    pub fn from(string: &str) -> Result<Method, &'static str> {
-        use Method::*;
-        match string {
-            "HEAD" => Ok(Head),
-            "GET" => Ok(Get),
-            "DELETE" => Ok(Delete),
-            "POST" => Ok(Post),
-            "PATCH" => Ok(Patch),
-            "PUT" => Ok(Put),
-            "CONNECT" => Ok(Connect),
-            "TRACE" => Ok(Trace),
-            "OPTIONS" => Ok(Options),
-            _ => Err("Couldn't parse method from string"),
-        }
-    }
-}
-
-use std::fmt;
-impl fmt::Display for Method {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            Self::Head => String::from("HEAD"),
-            Self::Get => String::from("GET"),
-            Self::Delete => String::from("DELETE"),
-            Self::Post => String::from("POST"),
-            Self::Patch => String::from("PATCH"),
-            Self::Put => String::from("PUT"),
-            Self::Connect => String::from("CONNECT"),
-            Self::Trace => String::from("TRACE"),
-            Self::Options => String::from("OPTIONS"),
-        })
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn retrieve_method_from_string() {
-        assert_eq!(Method::Head, Method::from("HEAD").unwrap());
-        assert_eq!(Method::Get, Method::from("GET").unwrap());
-        assert_eq!(Method::Delete, Method::from("DELETE").unwrap());
-        assert_eq!(Method::Post, Method::from("POST").unwrap());
-        assert_eq!(Method::Patch, Method::from("PATCH").unwrap());
-        assert_eq!(Method::Put, Method::from("PUT").unwrap());
-        assert_eq!(Method::Connect, Method::from("CONNECT").unwrap());
-        assert_eq!(Method::Trace, Method::from("TRACE").unwrap());
-        assert_eq!(Method::Options, Method::from("OPTIONS").unwrap());
-    }
-
-    #[test]
-    #[should_panic(expected = "parse method from string")]
-    fn retrieve_method_from_string_fail() {
-        Method::from("GARBAGE").unwrap();
+        assert_eq!(Method::Head.to_string(), String::from("HEAD"));
+        assert_eq!(Method::Get.to_string(), String::from("GET"));
+        assert_eq!(Method::Delete.to_string(), String::from("DELETE"));
+        assert_eq!(Method::Post.to_string(), String::from("POST"));
+        assert_eq!(Method::Patch.to_string(), String::from("PATCH"));
+        assert_eq!(Method::Put.to_string(), String::from("PUT"));
+        assert_eq!(Method::Connect.to_string(), String::from("CONNECT"));
+        assert_eq!(Method::Trace.to_string(), String::from("TRACE"));
+        assert_eq!(Method::Options.to_string(), String::from("OPTIONS"));
     }
 }

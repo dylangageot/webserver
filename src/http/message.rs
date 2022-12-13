@@ -1,4 +1,4 @@
-use super::{Body, Headers, Method, Reason, Status, Url, Version};
+use super::{Body, Headers, Method, Status, Url, Version};
 use std::io::{BufRead, Write};
 
 #[derive(Debug, PartialEq)]
@@ -13,12 +13,15 @@ pub enum Type {
         status: Status,
     },
 }
-
+use std::str::FromStr;
 impl Type {
     fn from(introduction: &str) -> Result<Self, &'static str> {
         let mut space_splitted_iter = introduction.split_ascii_whitespace();
         let method = match space_splitted_iter.next() {
-            Some(s) => Method::from(s)?,
+            Some(s) => match Method::from_str(s) {
+                Ok(method) => method,
+                Err(_) => return Err("Couldn't parse method from string in the introduction line"),
+            },
             None => return Err("Couldn't find the method field in the introduction line"),
         };
         let url = match space_splitted_iter.next() {
@@ -26,7 +29,12 @@ impl Type {
             None => return Err("Couldn't find the url field in the introduction line"),
         };
         let version = match space_splitted_iter.next() {
-            Some(s) => Version::from(s)?,
+            Some(s) => match Version::from_str(s) {
+                Ok(version) => version,
+                Err(_) => {
+                    return Err("Couldn't parse version from string in the introduction line")
+                }
+            },
             None => return Err("Couldn't find the version field in the introduction line"),
         };
         Ok(Type::Request {
