@@ -21,6 +21,19 @@ impl Version {
     }
 }
 
+use std::fmt;
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::V0_9 => String::from("HTTP/0.9"),
+            Self::V1_0 => String::from("HTTP/1.0"),
+            Self::V1_1 => String::from("HTTP/1.1"),
+            Self::V2 => String::from("HTTP/2"),
+            Self::V3 => String::from("HTTP/3")
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

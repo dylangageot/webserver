@@ -30,6 +30,23 @@ impl Method {
     }
 }
 
+use std::fmt;
+impl fmt::Display for Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::Head => String::from("HEAD"),
+            Self::Get => String::from("GET"),
+            Self::Delete => String::from("DELETE"),
+            Self::Post => String::from("POST"),
+            Self::Patch => String::from("PATCH"),
+            Self::Put => String::from("PUT"),
+            Self::Connect => String::from("CONNECT"),
+            Self::Trace => String::from("TRACE"),
+            Self::Options => String::from("OPTIONS"),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,5 @@
 use super::{Body, Headers, Method, Reason, Status, Url, Version};
-use std::io::BufRead;
+use std::io::{BufRead, Write};
 
 #[derive(Debug, PartialEq)]
 pub enum Type {
@@ -11,7 +11,6 @@ pub enum Type {
     Response {
         version: Version,
         status: Status,
-        reason: Reason,
     },
 }
 
@@ -35,6 +34,19 @@ impl Type {
             url: url,
             version: version,
         })
+    }
+
+    pub fn to(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
+        match self {
+            Self::Request {
+                method,
+                url,
+                version,
+            } => bufwrite.write_fmt(format_args!("{} {} {}\r\n", method, url, version)),
+            Self::Response { version, status } => {
+                bufwrite.write_fmt(format_args!("{} {}\r\n", version, status))
+            }
+        }
     }
 }
 
@@ -88,6 +100,38 @@ impl Message {
             headers: headers,
             body: body,
         })
+    }
+
+    pub fn to(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
+        self.message_type.to(bufwrite)?;
+        for (k, v) in &self.headers {
+            bufwrite.write_fmt(format_args!("{}: {}\r\n", k, v))?;
+        }
+        if let Some(body) = &self.body {
+            bufwrite.write_fmt(format_args!("\r\n"))?;
+            bufwrite.write(&body[..].as_bytes())?;
+        }
+        Ok(())
+    }
+
+    pub fn new(status: Status, headers: Option<Headers>, body: Option<Body>) -> Self {
+        let mut headers = headers.unwrap_or_else(Headers::new);
+        match &body {
+            Some(body) => {
+                headers.insert(String::from("Content-Length"), body.len().to_string());
+            }
+            _ => (),
+        };
+        Message {
+            message_type: {
+                Type::Response {
+                    version: Version::V1_1,
+                    status: status,
+                }
+            },
+            headers: headers,
+            body: body,
+        }
     }
 
     pub fn message_type(&self) -> &Type {
