@@ -1,5 +1,6 @@
 use super::{Body, Headers, Method, Status, Url, Version};
 use std::io::{BufRead, Write};
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
 pub enum Type {
@@ -13,7 +14,6 @@ pub enum Type {
         status: Status,
     },
 }
-use std::str::FromStr;
 impl Type {
     fn from(introduction: &str) -> Result<Self, &'static str> {
         let mut space_splitted_iter = introduction.split_ascii_whitespace();
