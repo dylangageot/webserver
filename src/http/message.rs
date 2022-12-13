@@ -14,6 +14,7 @@ pub enum Type {
         status: Status,
     },
 }
+
 impl Type {
     fn from(introduction: &str) -> Result<Self, &'static str> {
         let mut space_splitted_iter = introduction.split_ascii_whitespace();
@@ -78,6 +79,26 @@ impl Message {
             .collect()
     }
 
+    fn parse_body(
+        bufread: &mut impl BufRead,
+        headers: &Headers,
+    ) -> Result<Option<Body>, &'static str> {
+        match headers.get("Content-Length") {
+            Some(content_length) => match content_length.parse() {
+                Ok(content_length) => {
+                    let mut body: Vec<u8> = Vec::with_capacity(content_length);
+                    body.resize(content_length, 0);
+                    match bufread.read_exact(&mut body[..]) {
+                        Ok(_) => Ok(Some(String::from_utf8_lossy(&body).to_string())),
+                        Err(_) => return Err("Failed reading body"),
+                    }
+                }
+                Err(_) => return Err("Coudn't retrieve content length"),
+            },
+            None => Ok(None),
+        }
+    }
+
     pub fn from(bufread: &mut impl BufRead) -> Result<Self, &'static str> {
         // Parse header
         let mut iter = bufread.by_ref().lines().map(|s| s.unwrap());
@@ -89,20 +110,7 @@ impl Message {
             Some(h) => h,
             None => return Err("Couldn't parse headers"),
         };
-        let body = match headers.get("Content-Length") {
-            Some(content_length) => match content_length.parse() {
-                Ok(content_length) => {
-                    let mut body: Vec<u8> = Vec::with_capacity(content_length);
-                    body.resize(content_length, 0);
-                    match bufread.read_exact(&mut body[..]) {
-                        Ok(_) => Some(String::from_utf8_lossy(&body).to_string()),
-                        Err(_) => return Err("Failed reading body"),
-                    }
-                }
-                Err(_) => return Err("Coudn't retrieve content length"),
-            },
-            None => None,
-        };
+        let body = Message::parse_body(bufread, &headers)?;
         Ok(Self {
             message_type: message_type,
             headers: headers,
