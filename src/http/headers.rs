@@ -86,4 +86,17 @@ User-Agent: curl";
             String::from_utf8_lossy(&buffer).to_string()
         );
     }
+
+    #[test]
+    fn test_get_content_length() {
+        assert_eq!(Some(50), setup_header().get_content_length());
+    }
+
+    #[test]
+    fn test_set_content_length() {
+        let mut headers = setup_header();
+        headers.set_content_length(40);
+        assert_eq!(Some(40), headers.get_content_length());
+    }
+
 }
