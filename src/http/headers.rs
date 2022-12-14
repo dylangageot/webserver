@@ -1,12 +1,12 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io::Write;
 
 #[derive(Debug, PartialEq)]
-pub struct Headers(HashMap<String, String>);
+pub struct Headers(BTreeMap<String, String>);
 
 impl Headers {
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self(BTreeMap::new())
     }
 
     pub fn read(head: impl Iterator<Item = String>) -> Result<Self, &'static str> {
@@ -47,7 +47,7 @@ impl Headers {
 
 impl<const N: usize> From<[(String, String); N]> for Headers {
     fn from(map: [(String, String); N]) -> Self {
-        Self(HashMap::from_iter(map))
+        Self(BTreeMap::from_iter(map))
     }
 }
 
@@ -81,10 +81,9 @@ User-Agent: curl";
         let headers = setup_header();
         let mut buffer = Vec::new();
         headers.write(&mut buffer).unwrap();
-        // TODO(dgageot): make an assert here!
-        // assert_eq!(
-        //     format!("Content-Length: 50\r\nContent-Type: text/plain\r\nUser-Agent: curl\r\n"),
-        //     String::from_utf8_lossy(&buffer).to_string()
-        // );
+        assert_eq!(
+            format!("Content-Length: 50\r\nContent-Type: text/plain\r\nUser-Agent: curl\r\n"),
+            String::from_utf8_lossy(&buffer).to_string()
+        );
     }
 }
