@@ -15,9 +15,10 @@ pub enum Type {
     },
 }
 
-impl Type {
-    fn from(introduction: &str) -> Result<Self, &'static str> {
-        let mut space_splitted_iter = introduction.split_ascii_whitespace();
+impl FromStr for Type {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut space_splitted_iter = s.split_ascii_whitespace();
         let method = match space_splitted_iter.next() {
             Some(s) => match Method::from_str(s) {
                 Ok(method) => method,
@@ -44,16 +45,18 @@ impl Type {
             version: version,
         })
     }
+}
 
-    pub fn to(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
+impl ToString for Type {
+    fn to_string(&self) -> String {
         match self {
             Self::Request {
                 method,
                 url,
                 version,
-            } => bufwrite.write_fmt(format_args!("{} {} {}\r\n", method, url, version)),
+            } => format!("{} {} {}\r\n", method, url, version),
             Self::Response { version, status } => {
-                bufwrite.write_fmt(format_args!("{} {}\r\n", version, status))
+                format!("{} {}\r\n", version, status)
             }
         }
     }
@@ -67,50 +70,18 @@ pub struct Message {
 }
 
 impl Message {
-    fn parse_headers(head: impl Iterator<Item = String>) -> Result<Headers, &'static str> {
-        match head.take_while(|s| !s.is_empty())
-        .map(|s| {
-            let (k, v) = s.split_at(s.find(":")?);
-            Some((
-                String::from(k),
-                String::from(if v.len() > 1 { &v[2..] } else { "" }),
-            ))
-        })
-        .collect() {
-            Some(header) => Ok(header),
-            None => Err("Couldn't parse headers"),
-        }
-    }
-
-    fn parse_body(
-        bufread: &mut impl BufRead,
-        headers: &Headers,
-    ) -> Result<Option<Body>, &'static str> {
-        match headers.get("Content-Length") {
-            Some(content_length) => match content_length.parse() {
-                Ok(content_length) => {
-                    let mut body: Vec<u8> = Vec::with_capacity(content_length);
-                    body.resize(content_length, 0);
-                    match bufread.read_exact(&mut body[..]) {
-                        Ok(_) => Ok(Some(String::from_utf8_lossy(&body).to_string())),
-                        Err(_) => return Err("Failed reading body"),
-                    }
-                }
-                Err(_) => return Err("Coudn't retrieve content length"),
-            },
-            None => Ok(None),
-        }
-    }
-
     pub fn read(bufread: &mut impl BufRead) -> Result<Self, &'static str> {
         // Parse header
         let mut iter = bufread.by_ref().lines().map(|s| s.unwrap());
         let message_type = match iter.next() {
-            Some(s) => Type::from(&s)?,
+            Some(s) => Type::from_str(&s)?,
             None => return Err("Couldn't get an initial introduction line"),
         };
-        let headers = Message::parse_headers(iter)?;
-        let body = Message::parse_body(bufread, &headers)?;
+        let headers = Headers::read(iter)?;
+        let body = match headers.get_content_length() {
+            Some(content_length) => Some(Body::read(bufread, content_length)?),
+            None => None,
+        };
         Ok(Self {
             message_type: message_type,
             headers: headers,
@@ -119,13 +90,10 @@ impl Message {
     }
 
     pub fn write(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
-        self.message_type.to(bufwrite)?;
-        for (k, v) in &self.headers {
-            bufwrite.write_fmt(format_args!("{}: {}\r\n", k, v))?;
-        }
+        bufwrite.write(self.message_type.to_string().as_bytes())?;
+        self.headers.write(bufwrite)?;
         if let Some(body) = &self.body {
-            bufwrite.write_fmt(format_args!("\r\n"))?;
-            bufwrite.write(&body[..].as_bytes())?;
+            body.write(bufwrite)?;
         }
         Ok(())
     }
@@ -134,7 +102,7 @@ impl Message {
         let mut headers = headers.unwrap_or_else(Headers::new);
         match &body {
             Some(body) => {
-                headers.insert(String::from("Content-Length"), body.len().to_string());
+                headers.set_content_length(body.len());
             }
             _ => (),
         };
@@ -154,11 +122,11 @@ impl Message {
         &self.message_type
     }
 
-    pub fn get(&self, key: &str) -> Option<&String> {
-        self.headers.get(key)
+    pub fn headers(&self) -> &Headers {
+        &self.headers
     }
 
-    pub fn body(&self) -> &Option<String> {
+    pub fn body(&self) -> &Option<Body> {
         &self.body
     }
 }
@@ -176,26 +144,26 @@ mod tests {
                 url: String::from("index.html"),
                 version: Version::V1_1
             },
-            Type::from("GET index.html HTTP/1.1").unwrap()
+            Type::from_str("GET index.html HTTP/1.1").unwrap()
         );
     }
 
     #[test]
     #[should_panic(expected = "find the version field")]
     fn parse_introduction_version_parsing_fail() {
-        Type::from("GET index.html").unwrap();
+        Type::from_str("GET index.html").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the url field")]
     fn parse_introduction_url_parsing_fail() {
-        Type::from("GET").unwrap();
+        Type::from_str("GET").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the method field")]
     fn parse_introduction_method_parsing_fail() {
-        Type::from("").unwrap();
+        Type::from_str("").unwrap();
     }
 
     #[test]
@@ -306,7 +274,7 @@ hello world"
                     (String::from("User-Agent"), String::from("curl")),
                     (String::from("Content-Length"), String::from("11")),
                 ]),
-                body: Some(String::from("hello world"))
+                body: Some(Body::from_str("hello world").unwrap())
             },
             Message::read(&mut bufread).unwrap()
         );

@@ -1,6 +1,7 @@
 use std::{
     io::{BufReader, BufWriter},
     net::{TcpListener, TcpStream},
+    str::FromStr,
 };
 
 use webserver::http::{Body, Headers, Message, Method, Status, Type};
@@ -27,7 +28,7 @@ fn handle_connection(mut stream: TcpStream) {
                         String::from("Content-Type"),
                         String::from("text/plain"),
                     )])),
-                    Some(format!("Content of: {}\n", url)),
+                    Some(Body::from_str(&format!("Content of: {}\n", url)).unwrap()),
                 );
                 println!("Response: {:#?}", response);
                 response.write(&mut BufWriter::new(&mut stream)).unwrap();

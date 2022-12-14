@@ -2,17 +2,18 @@ pub mod method;
 pub mod status;
 pub mod version;
 pub mod message;
+pub mod body;
+pub mod headers;
 
 pub use method::Method;
 pub use status::Status;
 pub use version::Version;
 pub use message::Message;
 pub use message::Type;
+pub use body::Body;
+pub use headers::Headers;
 
-use std::collections::HashMap;
-pub type Headers = HashMap<String, String>;
 pub type Url = String;
-pub type Body = String;
 pub type Reason = String;
 
 pub struct Response {}
