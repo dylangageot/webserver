@@ -50,3 +50,30 @@ impl<const N: usize> From<[(String, String); N]> for Headers {
         Self(HashMap::from_iter(map))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::BufReader;
+
+    use super::*;
+
+    fn setup_headers() -> String {
+        String::from(
+            "\
+Content-Type: text/plain
+User-Agent: curl",
+        )
+    }
+
+    #[test]
+    fn test_read() {
+        let header_lines = setup_headers();
+        assert_eq!(
+            Headers::from([
+                (String::from("Content-Type"), String::from("text/plain")),
+                (String::from("User-Agent"), String::from("curl"))
+            ]),
+            Headers::read(header_lines.lines().map(|s| s.to_string())).unwrap()
+        );
+    }
+}
