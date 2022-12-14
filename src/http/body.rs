@@ -6,7 +6,7 @@ use std::str::FromStr;
 pub struct Body(Vec<u8>);
 
 impl Body {
-    pub fn read(bufread: &mut impl BufRead, content_length: usize) -> Result<Body, &'static str> {
+    pub fn read(bufread: &mut impl BufRead, content_length: usize) -> Result<Self, &'static str> {
         let mut body: Vec<u8> = Vec::with_capacity(content_length);
         body.resize(content_length, 0);
         match bufread.read_exact(&mut body[..]) {
