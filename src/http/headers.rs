@@ -53,27 +53,35 @@ impl<const N: usize> From<[(String, String); N]> for Headers {
 
 #[cfg(test)]
 mod tests {
-    use std::io::BufReader;
-
     use super::*;
 
-    fn setup_headers() -> String {
-        String::from(
-            "\
+    const HEADER_EXAMPLE: &str = "\
 Content-Type: text/plain
-User-Agent: curl",
-        )
+User-Agent: curl";
+
+    fn setup_header() -> Headers {
+        Headers::from([
+            (String::from("Content-Type"), String::from("text/plain")),
+            (String::from("User-Agent"), String::from("curl")),
+        ])
     }
 
     #[test]
     fn test_read() {
-        let header_lines = setup_headers();
         assert_eq!(
-            Headers::from([
-                (String::from("Content-Type"), String::from("text/plain")),
-                (String::from("User-Agent"), String::from("curl"))
-            ]),
-            Headers::read(header_lines.lines().map(|s| s.to_string())).unwrap()
+            setup_header(),
+            Headers::read(HEADER_EXAMPLE.lines().map(|s| s.to_string())).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_write() {
+        let headers = setup_header();
+        let mut buffer = Vec::new();
+        headers.write(&mut buffer).unwrap();
+        assert_eq!(
+            format!("Content-Type: text/plain\r\nUser-Agent: curl\r\n"),
+            String::from_utf8_lossy(&buffer).to_string()
         );
     }
 }
