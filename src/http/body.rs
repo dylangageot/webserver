@@ -50,10 +50,14 @@ mod tests {
         BufReader::new(BODY_EXAMPLE.as_bytes())
     }
 
+    fn setup_body() -> Body {
+        Body(Vec::from(BODY_EXAMPLE.as_bytes()))
+    }
+
     #[test]
     fn test_read() {
         assert_eq!(
-            Body(Vec::from(BODY_EXAMPLE.as_bytes())),
+            setup_body(),
             Body::read(&mut setup_buffer_reader(), BODY_EXAMPLE.len()).unwrap()
         )
     }
@@ -67,12 +71,25 @@ mod tests {
     #[test]
     fn test_write() {
         let mut buffer = Vec::new();
-        Body(Vec::from(BODY_EXAMPLE.as_bytes()))
-            .write(&mut buffer)
-            .unwrap();
+        setup_body().write(&mut buffer).unwrap();
         assert_eq!(
             format!("\r\n{}", BODY_EXAMPLE),
             String::from_utf8_lossy(&buffer).to_string()
         );
+    }
+
+    #[test]
+    fn test_len() {
+        assert_eq!(11, setup_body().len())
+    }
+
+    #[test]
+    fn test_from_str() {
+        assert_eq!(setup_body(), Body::from_str(BODY_EXAMPLE).unwrap())
+    }
+
+    #[test]
+    fn test_to_string() {
+        assert_eq!(BODY_EXAMPLE, setup_body().to_string())
     }
 }
