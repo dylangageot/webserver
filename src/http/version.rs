@@ -16,7 +16,7 @@ pub enum Version {
 mod tests {
     use super::*;
     #[test]
-    fn retrieve_version_from_string() {
+    fn test_to_string() {
         assert_eq!(Version::V0_9.to_string(), String::from("HTTP/0.9"));
         assert_eq!(Version::V1_0.to_string(), String::from("HTTP/1.0"));
         assert_eq!(Version::V1_1.to_string(), String::from("HTTP/1.1"));

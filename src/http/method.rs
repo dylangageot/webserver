@@ -21,12 +21,11 @@ pub enum Method {
     Options,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn retrieve_method_from_string() {
+    fn test_to_string() {
         assert_eq!(Method::Head.to_string(), String::from("HEAD"));
         assert_eq!(Method::Get.to_string(), String::from("GET"));
         assert_eq!(Method::Delete.to_string(), String::from("DELETE"));
