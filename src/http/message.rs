@@ -137,7 +137,7 @@ mod tests {
 
     use super::*;
     #[test]
-    fn parse_introduction_success() {
+    fn test_type_from_str() {
         assert_eq!(
             Type::Request {
                 method: Method::Get,
@@ -150,24 +150,24 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "find the version field")]
-    fn parse_introduction_version_parsing_fail() {
+    fn test_type_from_str_panic_if_missing_version() {
         Type::from_str("GET index.html").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the url field")]
-    fn parse_introduction_url_parsing_fail() {
+    fn test_type_from_str_panic_if_missing_url() {
         Type::from_str("GET").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the method field")]
-    fn parse_introduction_method_parsing_fail() {
+    fn test_type_from_str_panic_if_missing_everything() {
         Type::from_str("").unwrap();
     }
 
     #[test]
-    fn from_success() {
+    fn test_message_read_request_without_body() {
         let mut bufread = BufReader::new(
             "\
 GET / HTTP/1.1
@@ -194,7 +194,7 @@ User-Agent: curl
     }
 
     #[test]
-    fn from_do_not_parse_beyond_empty_line() {
+    fn test_message_read_do_not_parse_beyond_headers_if_no_content_length_defined() {
         let mut bufread = BufReader::new(
             "\
 GET / HTTP/1.1
@@ -224,7 +224,7 @@ Test: Beyond empty line
 
     #[test]
     #[should_panic(expected = "parse headers")]
-    fn from_headers_parsing_fail() {
+    fn test_message_read_headers_parse_fail_malformed() {
         let mut bufread = BufReader::new(
             "\
 GET / HTTP/1.1
@@ -238,7 +238,7 @@ Should failed since it misses a colon
     }
 
     #[test]
-    fn from_headers_parsing_slice_index_still_success() {
+    fn test_message_read_headers_parse_fail_missing_value() {
         let mut bufread = BufReader::new(
             "\
 GET / HTTP/1.1
@@ -251,7 +251,7 @@ User-Agent:
     }
 
     #[test]
-    fn from_request_success() {
+    fn test_message_read_request_with_body() {
         let mut bufread = BufReader::new(
             "\
 GET / HTTP/1.1
@@ -282,8 +282,7 @@ hello world"
 
     #[test]
     #[should_panic(expected = "parse method from string")]
-    fn from_introduction_line_method_parsing_fail() {
-        let mut bufread = BufReader::new("GOT / HTTP/1.1".as_bytes());
-        Message::read(&mut bufread).unwrap();
+    fn test_type_from_str_panic_if_wrong_method() {
+        Type::from_str("GOT / HTTP/1.1").unwrap();
     }
 }
