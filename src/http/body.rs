@@ -32,6 +32,12 @@ impl FromStr for Body {
     }
 }
 
+impl From<Vec<u8>> for Body {
+    fn from(vec: Vec<u8>) -> Self {
+        Body(vec)
+    }
+}
+
 impl ToString for Body {
     fn to_string(&self) -> String {
         String::from_utf8_lossy(&self.0).to_string()

@@ -1,10 +1,11 @@
 use std::{
+    fs,
     io::{BufReader, BufWriter},
     net::{TcpListener, TcpStream},
     str::FromStr,
 };
 
-use webserver::http::{Body, Headers, Message, Method, Status, Type};
+use webserver::http::{index, Body, Headers, Message, Method, Status, Type};
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -26,9 +27,9 @@ fn handle_connection(mut stream: TcpStream) {
                     Status::Ok,
                     Some(Headers::from([(
                         String::from("Content-Type"),
-                        String::from("text/plain"),
+                        String::from("text/html"),
                     )])),
-                    Some(Body::from_str(&format!("Content of: {}\n", url)).unwrap()),
+                    Some(index::display_dir(url).unwrap()),
                 );
                 println!("Response: {:#?}", response);
                 response.write(&mut BufWriter::new(&mut stream)).unwrap();
