@@ -16,7 +16,11 @@ impl error::Error for Error {}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(())
+        match self {
+            Error::Io(e) => write!(f, "{}", e),
+            Error::MalformedRequestLine(r) => write!(f, "MalformedRequestLine {}", r),
+            Error::MalformedHeaders(r) => write!(f, "MalformedHeaders {}", r),
+        }
     }
 }
 
