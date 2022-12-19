@@ -85,7 +85,7 @@ mod tests {
                 path: String::from("/home"),
                 entries: vec![
                     Entry {
-                        url: String::from("/"),
+                        url: String::from(""),
                         label: String::from("..")
                     },
                     Entry {
@@ -104,7 +104,7 @@ mod tests {
         <body>
             <h2>Index of /home</h2>
             <a href=\"/\">..</a><br/>
-            <a href=\"/home/user\">user</a><br/>
+            <a href=\"//home/user\">user</a><br/>
         </body>
 </html>"
         );
