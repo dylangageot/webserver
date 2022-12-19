@@ -36,12 +36,12 @@ impl Index {
 }
 
 pub fn generate(base_path: PathBuf, path: PathBuf) -> Result<Message> {
-    let path = base_path.join(
+    let absolute_path = base_path.join(
         path.strip_prefix(PathBuf::from("/"))
             .map_err(|_| Error::IndexGeneration("couldn't strip / from url".to_string()))?,
     );
 
-    if !path.exists() {
+    if !absolute_path.exists() {
         return Ok(Message::new(
             Status::NotFound,
             Some(Headers::from([(
@@ -61,62 +61,44 @@ pub fn generate(base_path: PathBuf, path: PathBuf) -> Result<Message> {
             <p>Requested file or directory '{}' could not be found.</p>
         </body>
 </html>",
-                    path.to_string_lossy().to_string()
+                    absolute_path.to_string_lossy().to_string()
                 )
                 .parse()?,
             ),
         ));
-    } else if path.is_file() {
+    } else if absolute_path.is_file() {
         return Ok(Message::new(
             Status::Ok,
             Some(Headers::from([(
                 String::from("Content-Type"),
                 String::from("application/octet-stream"),
             )])),
-            Some(Body::from(fs::read(path)?)),
+            Some(Body::from(fs::read(absolute_path)?)),
         ));
     }
 
-    let get_path: fn(path: &Path) -> Result<String> = |path: &Path| {
-        Ok(path
-            .to_str()
-            .ok_or(Error::IndexGeneration(
-                "couldn't get string from a path".to_string(),
-            ))?
-            .to_string())
-    };
     let mut index = Index {
-        path: get_path(
-            path.strip_prefix(&base_path)
-                .unwrap_or(PathBuf::from("/").as_path()),
-        )?,
+        path: path.to_string_lossy().to_string(),
         entries: Vec::new(),
     };
-    if let Some(parent_path) = path.parent() {
-        index.entries.push(Entry {
-            url: get_path(
-                parent_path
-                    .strip_prefix(&base_path)
-                    .unwrap_or(PathBuf::from("").as_path()),
-            )?,
-            label: "..".to_string(),
-        })
+    if let Some(parent_path) = absolute_path.parent() {
+        println!("{:#?}", parent_path);
+        if let Ok(parent_path) = parent_path.strip_prefix(&base_path) {
+            index.entries.push(Entry {
+                url: parent_path.to_string_lossy().to_string(),
+                label: "..".to_string(),
+            })
+        }
     }
-    for entry in fs::read_dir(path)? {
+    for entry in fs::read_dir(absolute_path)? {
         let dir = entry?;
         let path = dir.path();
         let path = path
             .strip_prefix(&base_path)
             .map_err(|_| Error::IndexGeneration("couldn't strip base url from url".to_string()))?;
         index.entries.push(Entry {
-            url: get_path(&path)?,
-            label: dir
-                .file_name()
-                .to_str()
-                .ok_or(Error::IndexGeneration(
-                    "couldn't get string from a path".to_string(),
-                ))?
-                .to_string(),
+            url: path.to_string_lossy().to_string(),
+            label: dir.file_name().to_string_lossy().to_string(),
         });
     }
     println!("{:#?}", index);
