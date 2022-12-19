@@ -46,11 +46,21 @@ pub fn generate(base_path: PathBuf, path: PathBuf) -> Result<Message> {
             Status::NotFound,
             Some(Headers::from([(
                 String::from("Content-Type"),
-                String::from("text/plain"),
+                String::from("text/html"),
             )])),
             Some(
                 format!(
-                    "Requested file or directory '{}' does not exists",
+                    "\
+<html>
+        <head>
+            <title>Not found</title>
+        </head>
+        <body>
+            <h2>Not Found</h2>
+
+            <p>Requested file or directory '{}' could not be found.</p>
+        </body>
+</html>",
                     path.to_string_lossy().to_string()
                 )
                 .parse()?,
