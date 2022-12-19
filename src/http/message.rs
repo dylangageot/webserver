@@ -114,11 +114,8 @@ impl Message {
 
     pub fn new(status: Status, headers: Option<Headers>, body: Option<Body>) -> Self {
         let mut headers = headers.unwrap_or_else(Headers::new);
-        match &body {
-            Some(body) => {
-                headers.set_content_length(body.len());
-            }
-            _ => (),
+        if let Some(body) = &body {
+            headers.set_content_length(body.len());
         };
         Message {
             message_type: {
