@@ -1,3 +1,4 @@
+use super::{Error, Result};
 use std::collections::BTreeMap;
 use std::io::Write;
 
@@ -9,7 +10,7 @@ impl Headers {
         Self(BTreeMap::new())
     }
 
-    pub fn read(head: impl Iterator<Item = String>) -> Result<Self, &'static str> {
+    pub fn read(head: impl Iterator<Item = String>) -> Result<Self> {
         match head
             .take_while(|s| !s.is_empty())
             .map(|s| {
@@ -22,11 +23,13 @@ impl Headers {
             .collect()
         {
             Some(header) => Ok(Headers(header)),
-            None => Err("Couldn't parse headers"),
+            None => Err(Error::MalformedHeaders(
+                "couldn't parse headers".to_string(),
+            )),
         }
     }
 
-    pub fn write(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
+    pub fn write(&self, bufwrite: &mut impl Write) -> Result<()> {
         for (k, v) in &self.0 {
             bufwrite.write_fmt(format_args!("{}: {}\r\n", k, v))?;
         }
@@ -98,5 +101,4 @@ User-Agent: curl";
         headers.set_content_length(40);
         assert_eq!(Some(40), headers.get_content_length());
     }
-
 }

@@ -31,7 +31,7 @@ fn handle_connection(mut stream: TcpStream) {
                     )])),
                     Some(index::display_dir(url).unwrap()),
                 );
-                println!("Response: {:#?}", response);
+                //println!("Response: {:#?}", response);
                 response.write(&mut BufWriter::new(&mut stream)).unwrap();
             }
             _ => {

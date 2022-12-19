@@ -1,22 +1,24 @@
 use super::Body;
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use ramhorns::{Content, Error, Template};
 
-#[derive(Content)]
+#[derive(Debug, Content)]
 struct Entry {
     url: String,
     label: String,
 }
 
-#[derive(Content)]
+#[derive(Debug, Content)]
 struct Index {
     path: String,
     entries: Vec<Entry>,
 }
+
+const BASE_PATH: &str = "/home/gageotd";
 
 const INDEX: &str = "\
 <html>
@@ -25,7 +27,7 @@ const INDEX: &str = "\
         </head>
         <body>
             <h2>Index of {{path}}</h2>{{#entries}}
-            <a href=\"{{url}}\">{{label}}</a><br/>{{/entries}}
+            <a href=\"/{{url}}\">{{label}}</a><br/>{{/entries}}
         </body>
 </html>";
 
@@ -37,18 +39,38 @@ impl Index {
 }
 
 pub fn display_dir(path: &str) -> std::io::Result<Body> {
-    let path = format!(".{}", path);
+    let path = PathBuf::from(BASE_PATH)
+        .join(path.strip_prefix('/').unwrap())
+        .canonicalize()
+        .unwrap();
+    let get_path = |path: &Path| path.to_str().unwrap().to_string();
     let mut index = Index {
-        path: path.to_string(),
+        path: get_path(
+            path.strip_prefix(BASE_PATH)
+                .unwrap_or(PathBuf::from("/").as_path()),
+        ),
         entries: Vec::new(),
     };
-    for entry in fs::read_dir(Path::new(&path))? {
-        let dir = entry?;
+    if let Some(parent_path) = path.parent() {
         index.entries.push(Entry {
-            url: dir.path().to_str().unwrap().to_string(),
+            url: get_path(
+                parent_path
+                    .strip_prefix(BASE_PATH)
+                    .unwrap_or(PathBuf::from("").as_path()),
+            ),
+            label: "..".to_string(),
+        })
+    }
+    for entry in fs::read_dir(path)? {
+        let dir = entry?;
+        let path = dir.path();
+        let path = path.strip_prefix(BASE_PATH).unwrap();
+        index.entries.push(Entry {
+            url: get_path(&path),
             label: dir.file_name().to_str().unwrap().to_string(),
         });
     }
+    println!("{:#?}", index);
     Ok(Body::from_str(&index.render().unwrap()).unwrap())
 }
 
@@ -63,11 +85,11 @@ mod tests {
                 path: String::from("/home"),
                 entries: vec![
                     Entry {
-                        url: String::from("./"),
+                        url: String::from("/"),
                         label: String::from("..")
                     },
                     Entry {
-                        url: String::from("./home/user"),
+                        url: String::from("/home/user"),
                         label: String::from("user")
                     }
                 ]
@@ -81,8 +103,8 @@ mod tests {
         </head>
         <body>
             <h2>Index of /home</h2>
-            <a href=\"./\">..</a><br/>
-            <a href=\"./home/user\">user</a><br/>
+            <a href=\"/\">..</a><br/>
+            <a href=\"/home/user\">user</a><br/>
         </body>
 </html>"
         );

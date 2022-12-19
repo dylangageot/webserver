@@ -1,4 +1,4 @@
-use super::{Body, Headers, Method, Status, Url, Version};
+use super::{Body, Error, Headers, Method, Result, Status, Url, Version};
 use std::io::{BufRead, Write};
 use std::str::FromStr;
 
@@ -16,29 +16,37 @@ pub enum Type {
 }
 
 impl FromStr for Type {
-    type Err = &'static str;
+    type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut space_splitted_iter = s.split_ascii_whitespace();
-        let method = match space_splitted_iter.next() {
-            Some(s) => match Method::from_str(s) {
-                Ok(method) => method,
-                Err(_) => return Err("Couldn't parse method from string in the introduction line"),
-            },
-            None => return Err("Couldn't find the method field in the introduction line"),
-        };
-        let url = match space_splitted_iter.next() {
-            Some(s) => s.to_string(),
-            None => return Err("Couldn't find the url field in the introduction line"),
-        };
-        let version = match space_splitted_iter.next() {
-            Some(s) => match Version::from_str(s) {
-                Ok(version) => version,
-                Err(_) => {
-                    return Err("Couldn't parse version from string in the introduction line")
-                }
-            },
-            None => return Err("Couldn't find the version field in the introduction line"),
-        };
+
+        let method = space_splitted_iter
+            .next()
+            .ok_or(Error::MalformedRequestLine(
+                "couldn't find the method".to_string(),
+            ))?
+            .parse()
+            .map_err(|e| {
+                Error::MalformedRequestLine(format!("couldn't parse given method: {}", e))
+            })?;
+
+        let url = space_splitted_iter
+            .next()
+            .ok_or(Error::MalformedRequestLine(
+                "couldn't find the url".to_string(),
+            ))?
+            .to_string();
+
+        let version = space_splitted_iter
+            .next()
+            .ok_or(Error::MalformedRequestLine(
+                "couldn't find the version".to_string(),
+            ))?
+            .parse()
+            .map_err(|e| {
+                Error::MalformedRequestLine(format!("couldn't parse given version: {}", e))
+            })?;
+
         Ok(Type::Request {
             method: method,
             url: url,
@@ -70,13 +78,15 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn read(bufread: &mut impl BufRead) -> Result<Self, &'static str> {
+    pub fn read(bufread: &mut impl BufRead) -> Result<Self> {
         // Parse header
         let mut iter = bufread.by_ref().lines().map(|s| s.unwrap());
-        let message_type = match iter.next() {
-            Some(s) => Type::from_str(&s)?,
-            None => return Err("Couldn't get an initial introduction line"),
-        };
+        let message_type = iter
+            .next()
+            .ok_or(Error::MalformedRequestLine(
+                "couldn't find request line".to_string(),
+            ))?
+            .parse()?;
         let headers = Headers::read(iter)?;
         let body = match headers.get_content_length() {
             Some(content_length) => Some(Body::read(bufread, content_length)?),
@@ -89,7 +99,7 @@ impl Message {
         })
     }
 
-    pub fn write(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
+    pub fn write(&self, bufwrite: &mut impl Write) -> Result<()> {
         bufwrite.write(self.message_type.to_string().as_bytes())?;
         self.headers.write(bufwrite)?;
         if let Some(body) = &self.body {
@@ -149,19 +159,19 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "find the version field")]
+    #[should_panic(expected = "find the version")]
     fn test_type_from_str_panic_if_missing_version() {
         Type::from_str("GET index.html").unwrap();
     }
 
     #[test]
-    #[should_panic(expected = "find the url field")]
+    #[should_panic(expected = "find the url")]
     fn test_type_from_str_panic_if_missing_url() {
         Type::from_str("GET").unwrap();
     }
 
     #[test]
-    #[should_panic(expected = "find the method field")]
+    #[should_panic(expected = "find the method")]
     fn test_type_from_str_panic_if_missing_everything() {
         Type::from_str("").unwrap();
     }
@@ -281,7 +291,7 @@ hello world"
     }
 
     #[test]
-    #[should_panic(expected = "parse method from string")]
+    #[should_panic(expected = "parse given method")]
     fn test_type_from_str_panic_if_wrong_method() {
         Type::from_str("GOT / HTTP/1.1").unwrap();
     }

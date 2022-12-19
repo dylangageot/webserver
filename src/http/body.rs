@@ -1,3 +1,4 @@
+use super::{Error, Result};
 use std::io::BufRead;
 use std::io::Write;
 use std::str::FromStr;
@@ -6,18 +7,19 @@ use std::str::FromStr;
 pub struct Body(Vec<u8>);
 
 impl Body {
-    pub fn read(bufread: &mut impl BufRead, content_length: usize) -> Result<Self, &'static str> {
+    pub fn read(bufread: &mut impl BufRead, content_length: usize) -> Result<Self> {
         let mut body: Vec<u8> = Vec::with_capacity(content_length);
         body.resize(content_length, 0);
-        match bufread.read_exact(&mut body[..]) {
-            Ok(_) => Ok(Body(body)),
-            Err(_) => return Err("Failed reading body"),
-        }
+        bufread
+            .read_exact(&mut body[..])
+            .map_err(|e| Error::Io(e))?;
+        Ok(Body(body))
     }
 
-    pub fn write(&self, bufwrite: &mut impl Write) -> Result<(), std::io::Error> {
+    pub fn write(&self, bufwrite: &mut impl Write) -> Result<()> {
         bufwrite.write_fmt(format_args!("\r\n"))?;
-        bufwrite.write_all(&self.0)
+        bufwrite.write_all(&self.0)?;
+        Ok(())
     }
 
     pub fn len(&self) -> usize {
@@ -69,7 +71,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Failed reading body")]
+    #[should_panic(expected = "failed to fill whole buffer")]
     fn test_read_panic_if_content_length_is_gt_than_read_from_buffer() {
         Body::read(&mut setup_buffer_reader(), BODY_EXAMPLE.len() + 1).unwrap();
     }
