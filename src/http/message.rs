@@ -80,7 +80,11 @@ pub struct Message {
 impl Message {
     pub fn read(bufread: &mut impl BufRead) -> Result<Self> {
         // Parse header
-        let mut iter = bufread.by_ref().lines().map(|s| s.unwrap());
+        let mut iter = bufread
+            .by_ref()
+            .lines()
+            .take_while(|s| s.is_ok())
+            .map(|s| s.unwrap());
         let message_type = iter
             .next()
             .ok_or(Error::MalformedRequestLine(
