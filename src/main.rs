@@ -1,7 +1,7 @@
 use std::{
     io::{BufReader, BufWriter},
     net::{TcpListener, TcpStream},
-    path::PathBuf,
+    path::Path,
 };
 
 use webserver::http::{index, Message, Method, Result, Type};
@@ -26,9 +26,7 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
         Type::Request { method, url, .. } => match method {
             Method::Get => {
                 println!("Request: {:#?}", request);
-                //println!("Response: {:#?}", response);
-                index::generate(PathBuf::from(BASE_PATH), PathBuf::from(url))?
-                    .write(&mut BufWriter::new(&mut stream))?;
+                index::generate(BASE_PATH, url)?.write(&mut BufWriter::new(&mut stream))?;
             }
             _ => {
                 panic!("Only GET method is allowed for the moment");

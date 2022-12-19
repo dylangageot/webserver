@@ -35,53 +35,54 @@ impl Index {
     }
 }
 
-pub fn generate(base_path: PathBuf, path: PathBuf) -> Result<Message> {
-    let absolute_path = base_path.join(
-        path.strip_prefix(PathBuf::from("/"))
-            .map_err(|_| Error::IndexGeneration("couldn't strip / from url".to_string()))?,
-    );
-
-    if !absolute_path.exists() {
-        return Ok(Message::new(
-            Status::NotFound,
-            Some(Headers::from([(
-                String::from("Content-Type"),
-                String::from("text/html"),
-            )])),
-            Some(
-                format!(
-                    "\
+fn generate_not_found_page(relative_path: impl AsRef<Path>) -> Result<Message> {
+    Ok(Message::new(
+        Status::NotFound,
+        Some(Headers::from([(
+            String::from("Content-Type"),
+            String::from("text/html"),
+        )])),
+        Some(
+            format!(
+                "\
 <html>
-        <head>
-            <title>Not found</title>
-        </head>
-        <body>
-            <h2>Not Found</h2>
+    <head>
+        <title>Not found</title>
+    </head>
+    <body>
+        <h2>Not Found</h2>
 
-            <p>Requested file or directory '{}' could not be found.</p>
-        </body>
+        <p>Requested file or directory '{}' could not be found.</p>
+    </body>
 </html>",
-                    absolute_path.to_string_lossy().to_string()
-                )
-                .parse()?,
-            ),
-        ));
-    } else if absolute_path.is_file() {
-        return Ok(Message::new(
-            Status::Ok,
-            Some(Headers::from([(
-                String::from("Content-Type"),
-                String::from("application/octet-stream"),
-            )])),
-            Some(Body::from(fs::read(absolute_path)?)),
-        ));
-    }
+                relative_path.as_ref().to_string_lossy().to_string()
+            )
+            .parse()?,
+        ),
+    ))
+}
 
+fn generate_file_response(absolute_path: impl AsRef<Path>) -> Result<Message> {
+    Ok(Message::new(
+        Status::Ok,
+        Some(Headers::from([(
+            String::from("Content-Type"),
+            String::from("application/octet-stream"),
+        )])),
+        Some(Body::from(fs::read(absolute_path)?)),
+    ))
+}
+
+fn generate_index_page(
+    base_path: impl AsRef<Path>,
+    relative_path: impl AsRef<Path>,
+    absolute_path: impl AsRef<Path>,
+) -> Result<Message> {
     let mut index = Index {
-        path: path.to_string_lossy().to_string(),
+        path: relative_path.as_ref().to_string_lossy().to_string(),
         entries: Vec::new(),
     };
-    if let Some(parent_path) = absolute_path.parent() {
+    if let Some(parent_path) = absolute_path.as_ref().parent() {
         println!("{:#?}", parent_path);
         if let Ok(parent_path) = parent_path.strip_prefix(&base_path) {
             index.entries.push(Entry {
@@ -111,6 +112,21 @@ pub fn generate(base_path: PathBuf, path: PathBuf) -> Result<Message> {
         )])),
         Some(index.render()?.parse()?),
     ))
+}
+
+pub fn generate(base_path: impl AsRef<Path>, relative_path: impl AsRef<Path>) -> Result<Message> {
+    let absolute_path = base_path.as_ref().join(
+        relative_path
+            .as_ref()
+            .strip_prefix(PathBuf::from("/"))
+            .map_err(|_| Error::IndexGeneration("couldn't strip / from url".to_string()))?,
+    );
+    if !absolute_path.exists() {
+        return generate_not_found_page(&relative_path);
+    } else if absolute_path.is_file() {
+        return generate_file_response(&absolute_path);
+    }
+    generate_index_page(base_path, relative_path, absolute_path)
 }
 
 #[cfg(test)]
