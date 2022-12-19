@@ -87,7 +87,7 @@ fn generate_index_page(
         if let Ok(parent_path) = parent_path.strip_prefix(&base_path) {
             index.entries.push(Entry {
                 url: parent_path.to_string_lossy().to_string(),
-                label: "..".to_string(),
+                label: String::from(".."),
             })
         }
     }
@@ -119,7 +119,7 @@ pub fn generate(base_path: impl AsRef<Path>, relative_path: impl AsRef<Path>) ->
         relative_path
             .as_ref()
             .strip_prefix(PathBuf::from("/"))
-            .map_err(|_| Error::IndexGeneration("couldn't strip / from url".to_string()))?,
+            .map_err(|_| Error::IndexGeneration(String::from("couldn't strip / from url")))?,
     );
     if !absolute_path.exists() {
         return generate_not_found_page(&relative_path);
