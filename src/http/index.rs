@@ -1,4 +1,4 @@
-use super::{Body, Error, Result};
+use super::{Error, Headers, Message, Result, Status};
 use ramhorns::{Content, Template};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,34 +15,48 @@ struct Index {
     entries: Vec<Entry>,
 }
 
-const BASE_PATH: &str = "/home/gageotd";
-
-const INDEX: &str = "\
-<html>
-        <head>
-            <title>Index of {{path}}</title>
-        </head>
-        <body>
-            <h2>Index of {{path}}</h2>
-            <ul>{{#entries}}
-                <li><a href=\"/{{url}}\">{{label}}</a></li>{{/entries}}
-            </ul>
-        </body>
-</html>";
-
 impl Index {
+    const INDEX: &str = "\
+    <html>
+            <head>
+                <title>Index of {{path}}</title>
+            </head>
+            <body>
+                <h2>Index of {{path}}</h2>
+                <ul>{{#entries}}
+                    <li><a href=\"/{{url}}\">{{label}}</a></li>{{/entries}}
+                </ul>
+            </body>
+    </html>";
     fn render(&self) -> Result<String> {
-        let tpl = Template::new(INDEX)?;
+        let tpl = Template::new(Index::INDEX)?;
         Ok(tpl.render(self))
     }
 }
 
-pub fn display_dir(path: &str) -> Result<Body> {
-    let path = PathBuf::from(BASE_PATH)
-        .join(path.strip_prefix('/').ok_or(Error::IndexGeneration(
-            "couldn't strip / from url".to_string(),
-        ))?)
-        .canonicalize()?;
+pub fn generate(base_path: PathBuf, path: PathBuf) -> Result<Message> {
+    let path = base_path.join(
+        path.strip_prefix(PathBuf::from("/"))
+            .map_err(|_| Error::IndexGeneration("couldn't strip / from url".to_string()))?,
+    );
+
+    if !path.exists() {
+        return Ok(Message::new(
+            Status::NotFound,
+            Some(Headers::from([(
+                String::from("Content-Type"),
+                String::from("text/plain"),
+            )])),
+            Some(
+                format!(
+                    "Requested file or directory '{}' does not exists",
+                    path.to_string_lossy().to_string()
+                )
+                .parse()?,
+            ),
+        ));
+    }
+
     let get_path: fn(path: &Path) -> Result<String> = |path: &Path| {
         Ok(path
             .to_str()
@@ -53,7 +67,7 @@ pub fn display_dir(path: &str) -> Result<Body> {
     };
     let mut index = Index {
         path: get_path(
-            path.strip_prefix(BASE_PATH)
+            path.strip_prefix(&base_path)
                 .unwrap_or(PathBuf::from("/").as_path()),
         )?,
         entries: Vec::new(),
@@ -62,7 +76,7 @@ pub fn display_dir(path: &str) -> Result<Body> {
         index.entries.push(Entry {
             url: get_path(
                 parent_path
-                    .strip_prefix(BASE_PATH)
+                    .strip_prefix(&base_path)
                     .unwrap_or(PathBuf::from("").as_path()),
             )?,
             label: "..".to_string(),
@@ -72,7 +86,7 @@ pub fn display_dir(path: &str) -> Result<Body> {
         let dir = entry?;
         let path = dir.path();
         let path = path
-            .strip_prefix(BASE_PATH)
+            .strip_prefix(&base_path)
             .map_err(|_| Error::IndexGeneration("couldn't strip base url from url".to_string()))?;
         index.entries.push(Entry {
             url: get_path(&path)?,
@@ -86,7 +100,15 @@ pub fn display_dir(path: &str) -> Result<Body> {
         });
     }
     println!("{:#?}", index);
-    Ok(index.render()?.parse()?)
+
+    Ok(Message::new(
+        Status::Ok,
+        Some(Headers::from([(
+            String::from("Content-Type"),
+            String::from("text/html"),
+        )])),
+        Some(index.render()?.parse()?),
+    ))
 }
 
 #[cfg(test)]
