@@ -92,10 +92,10 @@ impl Message {
             ))?
             .parse()?;
         let headers = Headers::read(iter)?;
-        let body = match headers.get_content_length() {
-            Some(content_length) => Some(Body::read(bufread, content_length)?),
-            None => None,
-        };
+        let body = headers
+            .get_content_length()
+            .map(|content_length| Body::read(bufread, content_length))
+            .transpose()?;
         Ok(Self {
             message_type: message_type,
             headers: headers,
