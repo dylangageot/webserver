@@ -16,20 +16,21 @@ struct Index {
 }
 
 impl Index {
-    const INDEX: &str = "\
-    <html>
-            <head>
-                <title>Index of {{path}}</title>
-            </head>
-            <body>
-                <h2>Index of {{path}}</h2>
-                <ul>{{#entries}}
-                    <li><a href=\"/{{url}}\">{{label}}</a></li>{{/entries}}
-                </ul>
-            </body>
-    </html>";
     fn render(&self) -> Result<String> {
-        let tpl = Template::new(Index::INDEX)?;
+        let tpl = Template::new(
+            "\
+<html>
+        <head>
+            <title>Index of {{path}}</title>
+        </head>
+        <body>
+            <h2>Index of {{path}}</h2>
+            <ul>{{#entries}}
+                <li><a href=\"/{{url}}\">{{label}}</a></li>{{/entries}}
+            </ul>
+        </body>
+</html>",
+        )?;
         Ok(tpl.render(self))
     }
 }
