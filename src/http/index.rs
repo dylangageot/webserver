@@ -26,7 +26,7 @@ const INDEX: &str = "\
         <body>
             <h2>Index of {{path}}</h2>
             <ul>{{#entries}}
-            <li><a href=\"/{{url}}\">{{label}}</a></li>{{/entries}}
+                <li><a href=\"/{{url}}\">{{label}}</a></li>{{/entries}}
             </ul>
         </body>
 </html>";
