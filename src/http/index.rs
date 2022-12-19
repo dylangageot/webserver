@@ -78,12 +78,13 @@ fn generate_index_page(
     relative_path: impl AsRef<Path>,
     absolute_path: impl AsRef<Path>,
 ) -> Result<Message> {
+    // Initialize the index structure
     let mut index = Index {
         path: relative_path.as_ref().to_string_lossy().to_string(),
         entries: Vec::new(),
     };
+    // Retrieve parent path and set it as ".." entry
     if let Some(parent_path) = absolute_path.as_ref().parent() {
-        println!("{:#?}", parent_path);
         if let Ok(parent_path) = parent_path.strip_prefix(&base_path) {
             index.entries.push(Entry {
                 url: parent_path.to_string_lossy().to_string(),
@@ -91,19 +92,22 @@ fn generate_index_page(
             })
         }
     }
+    // For each file/dir entry, add them to the index
     for entry in fs::read_dir(absolute_path)? {
         let dir = entry?;
         let path = dir.path();
-        let path = path
-            .strip_prefix(&base_path)
-            .map_err(|_| Error::IndexGeneration("couldn't strip base url from url".to_string()))?;
         index.entries.push(Entry {
-            url: path.to_string_lossy().to_string(),
+            url: path
+                .strip_prefix(&base_path)
+                .map_err(|_| {
+                    Error::IndexGeneration("couldn't strip base url from url".to_string())
+                })?
+                .to_string_lossy()
+                .to_string(),
             label: dir.file_name().to_string_lossy().to_string(),
         });
     }
-    println!("{:#?}", index);
-
+    // Render index page
     Ok(Message::new(
         Status::Ok,
         Some(Headers::from([(
@@ -158,8 +162,10 @@ mod tests {
         </head>
         <body>
             <h2>Index of /home</h2>
-            <a href=\"/\">..</a><br/>
-            <a href=\"//home/user\">user</a><br/>
+            <ul>
+                <li><a href=\"/\">..</a></li>
+                <li><a href=\"//home/user\">user</a></li>
+            </ul>
         </body>
 </html>"
         );

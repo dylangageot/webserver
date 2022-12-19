@@ -1,7 +1,6 @@
 use std::{
     io::{BufReader, BufWriter},
     net::{TcpListener, TcpStream},
-    path::Path,
 };
 
 use webserver::http::{index, Message, Method, Result, Type};
