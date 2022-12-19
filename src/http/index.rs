@@ -1,10 +1,8 @@
-use super::Body;
-
+use super::{Body, Error, Result};
+use ramhorns::{Content, Template};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-
-use ramhorns::{Content, Error, Template};
 
 #[derive(Debug, Content)]
 struct Entry {
@@ -26,29 +24,39 @@ const INDEX: &str = "\
             <title>Index of {{path}}</title>
         </head>
         <body>
-            <h2>Index of {{path}}</h2>{{#entries}}
-            <a href=\"/{{url}}\">{{label}}</a><br/>{{/entries}}
+            <h2>Index of {{path}}</h2>
+            <ul>{{#entries}}
+            <li><a href=\"/{{url}}\">{{label}}</a></li>{{/entries}}
+            </ul>
         </body>
 </html>";
 
 impl Index {
-    fn render(&self) -> Result<String, Error> {
+    fn render(&self) -> Result<String> {
         let tpl = Template::new(INDEX)?;
         Ok(tpl.render(self))
     }
 }
 
-pub fn display_dir(path: &str) -> std::io::Result<Body> {
+pub fn display_dir(path: &str) -> Result<Body> {
     let path = PathBuf::from(BASE_PATH)
-        .join(path.strip_prefix('/').unwrap())
-        .canonicalize()
-        .unwrap();
-    let get_path = |path: &Path| path.to_str().unwrap().to_string();
+        .join(path.strip_prefix('/').ok_or(Error::IndexGeneration(
+            "couldn't strip / from url".to_string(),
+        ))?)
+        .canonicalize()?;
+    let get_path: fn(path: &Path) -> Result<String> = |path: &Path| {
+        Ok(path
+            .to_str()
+            .ok_or(Error::IndexGeneration(
+                "couldn't get string from a path".to_string(),
+            ))?
+            .to_string())
+    };
     let mut index = Index {
         path: get_path(
             path.strip_prefix(BASE_PATH)
                 .unwrap_or(PathBuf::from("/").as_path()),
-        ),
+        )?,
         entries: Vec::new(),
     };
     if let Some(parent_path) = path.parent() {
@@ -57,21 +65,29 @@ pub fn display_dir(path: &str) -> std::io::Result<Body> {
                 parent_path
                     .strip_prefix(BASE_PATH)
                     .unwrap_or(PathBuf::from("").as_path()),
-            ),
+            )?,
             label: "..".to_string(),
         })
     }
     for entry in fs::read_dir(path)? {
         let dir = entry?;
         let path = dir.path();
-        let path = path.strip_prefix(BASE_PATH).unwrap();
+        let path = path
+            .strip_prefix(BASE_PATH)
+            .map_err(|_| Error::IndexGeneration("couldn't strip base url from url".to_string()))?;
         index.entries.push(Entry {
-            url: get_path(&path),
-            label: dir.file_name().to_str().unwrap().to_string(),
+            url: get_path(&path)?,
+            label: dir
+                .file_name()
+                .to_str()
+                .ok_or(Error::IndexGeneration(
+                    "couldn't get string from a path".to_string(),
+                ))?
+                .to_string(),
         });
     }
     println!("{:#?}", index);
-    Ok(Body::from_str(&index.render().unwrap()).unwrap())
+    Ok(Body::from_str(&index.render()?)?)
 }
 
 #[cfg(test)]

@@ -1,11 +1,9 @@
 use std::{
-    fs,
     io::{BufReader, BufWriter},
     net::{TcpListener, TcpStream},
-    str::FromStr,
 };
 
-use webserver::http::{index, Body, Headers, Message, Method, Status, Type};
+use webserver::http::{index, Headers, Message, Method, Result, Status, Type};
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -13,12 +11,15 @@ fn main() {
     for stream in listener.incoming() {
         let stream = stream.unwrap();
 
-        handle_connection(stream);
+        match handle_connection(stream) {
+            Err(e) => eprintln!("{}", e),
+            _ => continue,
+        }
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
-    let request = Message::read(&mut BufReader::new(&mut stream)).unwrap();
+fn handle_connection(mut stream: TcpStream) -> Result<()> {
+    let request = Message::read(&mut BufReader::new(&mut stream))?;
     match request.message_type() {
         Type::Request { method, url, .. } => match method {
             Method::Get => {
@@ -29,19 +30,18 @@ fn handle_connection(mut stream: TcpStream) {
                         String::from("Content-Type"),
                         String::from("text/html"),
                     )])),
-                    Some(index::display_dir(url).unwrap()),
+                    Some(index::display_dir(url)?),
                 );
                 //println!("Response: {:#?}", response);
-                response.write(&mut BufWriter::new(&mut stream)).unwrap();
+                response.write(&mut BufWriter::new(&mut stream))?;
             }
             _ => {
-                eprintln!("Only GET method is allowed for the moment");
-                return;
+                panic!("Only GET method is allowed for the moment");
             }
         },
         _ => {
-            eprintln!("Received a response instead of a request...");
-            return;
+            panic!("Received a response instead of a request...");
         }
     };
+    Ok(())
 }

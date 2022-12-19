@@ -28,7 +28,7 @@ impl Body {
 }
 
 impl FromStr for Body {
-    type Err = &'static str;
+    type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Body(Vec::from(s)))
     }
