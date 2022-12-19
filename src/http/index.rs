@@ -2,7 +2,6 @@ use super::{Body, Error, Result};
 use ramhorns::{Content, Template};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 #[derive(Debug, Content)]
 struct Entry {
@@ -87,7 +86,7 @@ pub fn display_dir(path: &str) -> Result<Body> {
         });
     }
     println!("{:#?}", index);
-    Ok(Body::from_str(&index.render()?)?)
+    Ok(index.render()?.parse()?)
 }
 
 #[cfg(test)]
