@@ -47,7 +47,7 @@ fn generate_not_found_page(relative_path: impl AsRef<Path>) -> Result<Message> {
                 "\
 <html>
     <head>
-        <title>Not found</title>
+        <title>404 Not Found</title>
     </head>
     <body>
         <h2>Not Found</h2>
