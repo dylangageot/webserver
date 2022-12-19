@@ -1,4 +1,4 @@
-use super::{Error, Headers, Message, Result, Status};
+use super::{Body, Error, Headers, Message, Result, Status};
 use ramhorns::{Content, Template};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -55,6 +55,15 @@ pub fn generate(base_path: PathBuf, path: PathBuf) -> Result<Message> {
                 )
                 .parse()?,
             ),
+        ));
+    } else if path.is_file() {
+        return Ok(Message::new(
+            Status::Ok,
+            Some(Headers::from([(
+                String::from("Content-Type"),
+                String::from("application/octet-stream"),
+            )])),
+            Some(Body::from(fs::read(path)?)),
         ));
     }
 
