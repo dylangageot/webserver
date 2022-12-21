@@ -114,9 +114,7 @@ impl Message {
 
     pub fn new(status: Status, headers: Option<Headers>, body: Option<Body>) -> Self {
         let mut headers = headers.unwrap_or_else(Headers::new);
-        if let Some(body) = &body {
-            headers.set_content_length(body.len());
-        };
+        body.as_ref().map(|b| headers.set_content_length(b.len()));
         Message {
             message_type: {
                 Type::Response {
