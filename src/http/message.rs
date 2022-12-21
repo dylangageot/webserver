@@ -155,7 +155,7 @@ mod tests {
                 url: String::from("index.html"),
                 version: Version::V1_1
             },
-            Type::from_str("GET index.html HTTP/1.1").unwrap()
+            "GET index.html HTTP/1.1".parse().unwrap()
         );
     }
 
