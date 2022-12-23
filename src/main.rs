@@ -3,7 +3,7 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use webserver::http::{index, Message, Method, Result, Type};
+use webserver::http::{index, Message, Method, Result, StartLine};
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -21,8 +21,8 @@ fn main() {
 fn handle_connection(mut stream: TcpStream) -> Result<()> {
     const BASE_PATH: &str = "/home/gageotd";
     let request = Message::read(&mut BufReader::new(&mut stream))?;
-    match request.message_type() {
-        Type::Request { method, url, .. } => match method {
+    match request.start_line() {
+        StartLine::Request { method, url, .. } => match method {
             Method::Get => {
                 println!("Request: {:#?}", request);
                 index::generate(BASE_PATH, url)?.write(&mut BufWriter::new(&mut stream))?;

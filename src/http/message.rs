@@ -3,7 +3,7 @@ use std::io::{BufRead, Write};
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
-pub enum Type {
+pub enum StartLine {
     Request {
         method: Method,
         url: Url,
@@ -15,7 +15,7 @@ pub enum Type {
     },
 }
 
-impl FromStr for Type {
+impl FromStr for StartLine {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut space_splitted_iter = s.split_ascii_whitespace();
@@ -47,7 +47,7 @@ impl FromStr for Type {
                 Error::MalformedRequestLine(format!("couldn't parse given version: {}", e))
             })?;
 
-        Ok(Type::Request {
+        Ok(Self::Request {
             method: method,
             url: url,
             version: version,
@@ -55,7 +55,7 @@ impl FromStr for Type {
     }
 }
 
-impl ToString for Type {
+impl ToString for StartLine {
     fn to_string(&self) -> String {
         match self {
             Self::Request {
@@ -72,7 +72,7 @@ impl ToString for Type {
 
 #[derive(Debug, PartialEq)]
 pub struct Message {
-    message_type: Type,
+    start_line: StartLine,
     headers: Headers,
     body: Option<Body>,
 }
@@ -85,7 +85,7 @@ impl Message {
             .lines()
             .take_while(|s| s.is_ok())
             .map(|s| s.unwrap());
-        let message_type = iter
+        let start_line = iter
             .next()
             .ok_or(Error::MalformedRequestLine(
                 "couldn't find request line".to_string(),
@@ -97,14 +97,14 @@ impl Message {
             .map(|content_length| Body::read(bufread, content_length))
             .transpose()?;
         Ok(Self {
-            message_type: message_type,
+            start_line: start_line,
             headers: headers,
             body: body,
         })
     }
 
     pub fn write(&self, bufwrite: &mut impl Write) -> Result<()> {
-        bufwrite.write(self.message_type.to_string().as_bytes())?;
+        bufwrite.write(self.start_line.to_string().as_bytes())?;
         self.headers.write(bufwrite)?;
         if let Some(body) = &self.body {
             body.write(bufwrite)?;
@@ -116,8 +116,8 @@ impl Message {
         let mut headers = headers.unwrap_or_else(Headers::new);
         body.as_ref().map(|b| headers.set_content_length(b.len()));
         Message {
-            message_type: {
-                Type::Response {
+            start_line: {
+                StartLine::Response {
                     version: Version::V1_1,
                     status: status,
                 }
@@ -127,8 +127,8 @@ impl Message {
         }
     }
 
-    pub fn message_type(&self) -> &Type {
-        &self.message_type
+    pub fn start_line(&self) -> &StartLine {
+        &self.start_line
     }
 
     pub fn headers(&self) -> &Headers {
@@ -146,9 +146,9 @@ mod tests {
 
     use super::*;
     #[test]
-    fn test_type_from_str() {
+    fn test_start_line_from_str() {
         assert_eq!(
-            Type::Request {
+            StartLine::Request {
                 method: Method::Get,
                 url: String::from("index.html"),
                 version: Version::V1_1
@@ -159,20 +159,20 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "find the version")]
-    fn test_type_from_str_panic_if_missing_version() {
-        Type::from_str("GET index.html").unwrap();
+    fn test_start_line_from_str_panic_if_missing_version() {
+        StartLine::from_str("GET index.html").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the url")]
-    fn test_type_from_str_panic_if_missing_url() {
-        Type::from_str("GET").unwrap();
+    fn test_start_line_from_str_panic_if_missing_url() {
+        StartLine::from_str("GET").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "find the method")]
-    fn test_type_from_str_panic_if_missing_everything() {
-        Type::from_str("").unwrap();
+    fn test_start_line_from_str_panic_if_missing_everything() {
+        StartLine::from_str("").unwrap();
     }
 
     #[test]
@@ -187,7 +187,7 @@ User-Agent: curl
         );
         assert_eq!(
             Message {
-                message_type: Type::Request {
+                start_line: StartLine::Request {
                     method: Method::Get,
                     url: String::from("/"),
                     version: Version::V1_1
@@ -216,7 +216,7 @@ Test: Beyond empty line
         );
         assert_eq!(
             Message {
-                message_type: Type::Request {
+                start_line: StartLine::Request {
                     method: Method::Get,
                     url: String::from("/"),
                     version: Version::V1_1
@@ -273,7 +273,7 @@ hello world"
         );
         assert_eq!(
             Message {
-                message_type: Type::Request {
+                start_line: StartLine::Request {
                     method: Method::Get,
                     url: String::from("/"),
                     version: Version::V1_1
@@ -291,7 +291,7 @@ hello world"
 
     #[test]
     #[should_panic(expected = "parse given method")]
-    fn test_type_from_str_panic_if_wrong_method() {
-        Type::from_str("GOT / HTTP/1.1").unwrap();
+    fn test_start_line_from_str_panic_if_wrong_method() {
+        StartLine::from_str("GOT / HTTP/1.1").unwrap();
     }
 }

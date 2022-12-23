@@ -12,7 +12,7 @@ pub use error::Error;
 pub use error::Result;
 pub use headers::Headers;
 pub use message::Message;
-pub use message::Type;
+pub use message::StartLine;
 pub use method::Method;
 pub use status::Status;
 pub use version::Version;
